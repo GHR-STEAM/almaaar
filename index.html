@@ -1,0 +1,272 @@
+<!doctype html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Chromecast Hub</title>
+<style>
+:root{--bg:#0f1218;--card:#181d27;--line:#262d3b;--txt:#e8ecf3;--mut:#8b95a8;--acc:#4f8cff;--ok:#2ecc71;--warn:#f5a524;--bad:#ef4b5f}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--txt);font-family:Tahoma,"Segoe UI",sans-serif;font-size:15px}
+header{display:flex;align-items:center;justify-content:space-between;padding:12px 20px;background:var(--card);border-bottom:1px solid var(--line);position:sticky;top:0;z-index:5}
+header h1{font-size:18px;margin:0}
+#conn{font-size:13px;color:var(--mut)}
+#conn b{color:var(--ok)}
+nav{display:flex;gap:6px;padding:10px 20px;flex-wrap:wrap;border-bottom:1px solid var(--line)}
+nav button{background:transparent;border:1px solid var(--line);color:var(--mut);padding:8px 16px;border-radius:8px;cursor:pointer;font:inherit}
+nav button.on{background:var(--acc);border-color:var(--acc);color:#fff}
+main{padding:20px;max-width:1100px;margin:auto}
+.tab{display:none}.tab.on{display:block}
+.card{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:16px;margin-bottom:16px}
+.card h3{margin:0 0 12px;font-size:15px}
+.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:12px}
+.stat{background:var(--bg);border:1px solid var(--line);border-radius:10px;padding:14px}
+.stat .v{font-size:24px;font-weight:700;direction:ltr;text-align:right}
+.stat .l{color:var(--mut);font-size:13px;margin-bottom:6px}
+.bar{height:6px;background:var(--line);border-radius:4px;margin-top:8px;overflow:hidden}
+.bar i{display:block;height:100%;background:var(--acc);width:0}
+input,select{background:var(--bg);border:1px solid var(--line);color:var(--txt);padding:9px 12px;border-radius:8px;font:inherit}
+input[type=text],input[type=number]{direction:ltr;text-align:left}
+button.b{background:var(--acc);border:0;color:#fff;padding:9px 16px;border-radius:8px;cursor:pointer;font:inherit}
+button.b.g{background:var(--line);color:var(--txt)}
+button.b.r{background:var(--bad)}
+button.b.w{background:var(--warn);color:#111}
+button.b.s{padding:5px 10px;font-size:13px}
+.row{display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-bottom:10px}
+pre{background:#0a0d12;border:1px solid var(--line);border-radius:10px;padding:12px;overflow:auto;max-height:480px;direction:ltr;text-align:left;font-size:12.5px;white-space:pre-wrap;word-break:break-all;margin:0}
+table{width:100%;border-collapse:collapse}
+td,th{padding:7px 8px;border-bottom:1px solid var(--line);text-align:right}
+td.pk{direction:ltr;text-align:left;font-family:Consolas,monospace;font-size:13px}
+.act{display:flex;gap:5px;flex-wrap:wrap}
+.tag{font-size:11px;background:var(--line);color:var(--mut);padding:2px 7px;border-radius:6px}
+#toast{position:fixed;bottom:20px;left:50%;transform:translateX(-50%);background:#000;border:1px solid var(--line);padding:10px 18px;border-radius:10px;display:none;max-width:80%;z-index:20}
+.hint{color:var(--mut);font-size:13px;margin:6px 0}
+.file{cursor:pointer}.file:hover{background:#1f2633}
+img.shot{max-width:100%;border-radius:10px;border:1px solid var(--line)}
+</style>
+</head>
+<body>
+<header><h1>🛰️ Chromecast Hub</h1><div id="conn">غير متصل</div></header>
+<nav id="nav">
+  <button data-t="conn" class="on">الاتصال</button>
+  <button data-t="mon">المراقبة</button>
+  <button data-t="apps">التطبيقات</button>
+  <button data-t="logs">السجلات</button>
+  <button data-t="files">الملفات</button>
+  <button data-t="tools">أدوات</button>
+</nav>
+<main>
+
+<section id="tab-conn" class="tab on" data-tab="conn">
+  <div class="card">
+    <h3>الاتصال بالجهاز</h3>
+    <p class="hint">على الـ Chromecast: الإعدادات ← النظام ← حول ← اضغط على "Android TV OS build" سبع مرات، ثم خيارات المطور ← فعّل "تصحيح الأخطاء عبر USB/الشبكة" (أو "Wireless debugging").</p>
+    <div class="row">
+      <input type="text" id="ip" placeholder="IP الجهاز مثل 192.168.1.50" size="26">
+      <input type="number" id="port" value="5555" style="width:100px">
+      <button class="b" onclick="connect()">اتصال</button>
+      <button class="b g" onclick="disconnect()">قطع الاتصال</button>
+    </div>
+    <p class="hint">أول مرة: وافق على نافذة "السماح بتصحيح USB" اللي تظهر على التلفزيون.</p>
+  </div>
+  <div class="card">
+    <h3>اقتران (Wireless debugging - أندرويد 11+)</h3>
+    <p class="hint">إذا خيار الاتصال العادي ما اشتغل: من "Wireless debugging" اختر "Pair device with pairing code" وأدخل البيانات.</p>
+    <div class="row">
+      <input type="text" id="pip" placeholder="IP" size="18">
+      <input type="number" id="pport" placeholder="منفذ الاقتران" style="width:130px">
+      <input type="text" id="pcode" placeholder="الكود" size="10">
+      <button class="b" onclick="pair()">اقتران</button>
+    </div>
+  </div>
+  <div class="card"><h3>الأجهزة</h3><div id="devs" class="hint">—</div></div>
+</section>
+
+<section class="tab" data-tab="mon">
+  <div class="row"><button class="b" onclick="loadStats()">تحديث</button>
+    <label><input type="checkbox" id="auto" onchange="autoToggle()"> تحديث تلقائي كل 5 ثواني</label></div>
+  <div class="grid">
+    <div class="stat"><div class="l">المعالج</div><div class="v" id="s-cpu">—</div><div class="bar"><i id="b-cpu"></i></div></div>
+    <div class="stat"><div class="l">الذاكرة</div><div class="v" id="s-mem">—</div><div class="bar"><i id="b-mem"></i></div></div>
+    <div class="stat"><div class="l">التخزين</div><div class="v" id="s-sto">—</div><div class="bar"><i id="b-sto"></i></div></div>
+    <div class="stat"><div class="l">الحرارة</div><div class="v" id="s-tmp">—</div></div>
+    <div class="stat"><div class="l">مدة التشغيل</div><div class="v" id="s-up">—</div></div>
+  </div>
+  <div class="card" style="margin-top:16px"><h3>أكثر العمليات استهلاكاً</h3>
+    <div class="row"><button class="b g s" onclick="loadTop()">عرض</button></div><pre id="top">—</pre></div>
+</section>
+
+<section class="tab" data-tab="apps">
+  <div class="card">
+    <div class="row">
+      <select id="kind" onchange="loadApps()">
+        <option value="user">تطبيقات المستخدم</option>
+        <option value="system">تطبيقات النظام</option>
+        <option value="disabled">المعطّلة</option>
+        <option value="all">الكل</option>
+      </select>
+      <input type="text" id="aq" placeholder="بحث..." oninput="renderApps()" size="24">
+      <button class="b" onclick="loadApps()">تحديث</button>
+      <button class="b w" onclick="trim()">تنظيف كاش كل التطبيقات</button>
+      <label class="b g" style="cursor:pointer">تثبيت APK<input type="file" accept=".apk" hidden onchange="installApk(this)"></label>
+    </div>
+    <p class="hint">التعطيل والحذف يتم للمستخدم الحالي فقط ويمكن التراجع عنه (تفعيل / استعادة). حزم النظام الحرجة محمية.</p>
+    <table><tbody id="apps"></tbody></table>
+  </div>
+</section>
+
+<section class="tab" data-tab="logs">
+  <div class="card">
+    <div class="row">
+      <select id="lmode"><option value="all">سجل النظام</option><option value="crash">الانهيارات</option><option value="anr">تعليق التطبيقات (ANR)</option></select>
+      <select id="llevel"><option>V</option><option>D</option><option>I</option><option selected>W</option><option>E</option><option>F</option></select>
+      <input type="number" id="llines" value="300" style="width:90px">
+      <input type="text" id="lq" placeholder="فلتر نصي" size="18">
+      <button class="b" onclick="loadLogs()">عرض</button>
+      <button class="b g" onclick="clearLogs()">مسح السجل</button>
+    </div>
+    <pre id="logout">—</pre>
+  </div>
+</section>
+
+<section class="tab" data-tab="files">
+  <div class="card">
+    <div class="row">
+      <input type="text" id="fpath" value="/sdcard/" size="40">
+      <button class="b" onclick="loadFiles()">فتح</button>
+      <button class="b g" onclick="upDir()">⬆ للأعلى</button>
+      <label class="b g" style="cursor:pointer">رفع ملف هنا<input type="file" hidden onchange="uploadFile(this)"></label>
+    </div>
+    <table><tbody id="files"></tbody></table>
+  </div>
+</section>
+
+<section class="tab" data-tab="tools">
+  <div class="card"><h3>ريموت</h3>
+    <div class="row">
+      <button class="b g" onclick="key('home')">Home</button><button class="b g" onclick="key('back')">Back</button>
+      <button class="b g" onclick="key('up')">↑</button><button class="b g" onclick="key('down')">↓</button>
+      <button class="b g" onclick="key('left')">←</button><button class="b g" onclick="key('right')">→</button>
+      <button class="b g" onclick="key('ok')">OK</button><button class="b g" onclick="key('menu')">Menu</button>
+    </div></div>
+  <div class="card"><h3>لقطة شاشة</h3>
+    <div class="row"><button class="b" onclick="shot()">التقاط</button></div><div id="shot"></div></div>
+  <div class="card"><h3>اللانشر</h3>
+    <p class="hint">ثبّت لانشر بديل أولاً (مثل Projectivy Launcher) ثم عطّل لانشر Google TV. التراجع بزر "إعادة تفعيل".</p>
+    <div class="row">
+      <button class="b g" onclick="loadLaunchers()">عرض اللانشرات</button>
+      <button class="b w" onclick="launcher('disable-stock')">تعطيل لانشر Google TV</button>
+      <button class="b g" onclick="launcher('enable-stock')">إعادة تفعيله</button>
+    </div><pre id="lout" style="max-height:140px">—</pre></div>
+  <div class="card"><h3>الجهاز</h3>
+    <div class="row"><button class="b r" onclick="reboot()">إعادة تشغيل الجهاز</button></div></div>
+</section>
+</main>
+<div id="toast"></div>
+
+<script>
+const $=id=>document.getElementById(id);
+let APPS=[],timer=null;
+function toast(m,ms=3500){const t=$('toast');t.textContent=m;t.style.display='block';clearTimeout(t._h);t._h=setTimeout(()=>t.style.display='none',ms)}
+async function api(url,opt={}){
+  const r=await fetch(url,opt);
+  if(!r.ok){let d='خطأ';try{d=(await r.json()).detail||d}catch(e){}throw new Error(d)}
+  const ct=r.headers.get('content-type')||'';
+  return ct.includes('json')?r.json():r;
+}
+const post=(u,b)=>api(u,{method:'POST',headers:{'Content-Type':'application/json'},body:b?JSON.stringify(b):undefined});
+const guard=fn=>async(...a)=>{try{await fn(...a)}catch(e){toast('⚠️ '+e.message,6000)}};
+
+document.querySelectorAll('#nav button').forEach(b=>b.onclick=()=>{
+  document.querySelectorAll('#nav button,.tab').forEach(x=>x.classList.remove('on'));
+  b.classList.add('on');document.querySelector(`[data-tab="${b.dataset.t}"]`).classList.add('on');
+  if(b.dataset.t==='mon')loadStats();
+  if(b.dataset.t==='apps'&&!APPS.length)loadApps();
+});
+
+async function refresh(){
+  try{
+    const s=await api('/api/status');
+    $('devs').innerHTML=s.devices.length?s.devices.map(d=>`<div class="row"><span dir="ltr">${d.serial}</span><span class="tag">${d.state}</span>${d.state==='device'?`<button class="b g s" onclick="sel('${d.serial}')">اختيار</button>`:''}</div>`).join(''):'لا توجد أجهزة';
+    const hdr=document.getElementById("conn");
+    hdr.innerHTML=s.selected?`<b>● متصل</b> ${s.info?`${s.info.maker} ${s.info.model} · Android ${s.info.android}`:s.selected}`:(s.adb?'غير متصل':'⚠️ ADB غير موجود');
+  }catch(e){}
+}
+const sel=guard(async s=>{await post('/api/select/'+encodeURIComponent(s));refresh()});
+const connect=guard(async()=>{const r=await post('/api/connect',{ip:$('ip').value.trim(),port:+$('port').value});toast(r.output);refresh()});
+const disconnect=guard(async()=>{await post('/api/disconnect');refresh()});
+const pair=guard(async()=>{const r=await post('/api/pair',{ip:$('pip').value.trim(),port:+$('pport').value,code:$('pcode').value.trim()});toast(r.output,6000)});
+
+const fmtKB=k=>k>=1048576?(k/1048576).toFixed(1)+' GB':(k/1024).toFixed(0)+' MB';
+function setBar(id,p){$(id).style.width=Math.min(100,p)+'%';$(id).style.background=p>85?'var(--bad)':p>65?'var(--warn)':'var(--acc)'}
+const loadStats=guard(async()=>{
+  const s=await api('/api/stats');
+  $('s-cpu').textContent=s.cpu_percent==null?'—':s.cpu_percent+'%';setBar('b-cpu',s.cpu_percent||0);
+  const mp=s.mem_total_kb?100*s.mem_used_kb/s.mem_total_kb:0;
+  $('s-mem').textContent=`${fmtKB(s.mem_used_kb)} / ${fmtKB(s.mem_total_kb)}`;setBar('b-mem',mp);
+  if(s.storage){const sp=100*s.storage.used_kb/s.storage.total_kb;$('s-sto').textContent=`${fmtKB(s.storage.used_kb)} / ${fmtKB(s.storage.total_kb)}`;setBar('b-sto',sp)}
+  $('s-tmp').textContent=s.temp_c==null?'—':s.temp_c+' °C';
+  if(s.uptime_s!=null){const h=Math.floor(s.uptime_s/3600),m=Math.floor(s.uptime_s%3600/60);const d=Math.floor(h/24);$('s-up').textContent=(d?`${d} يوم و `:'')+`${h%24} ساعة و ${m} دقيقة`}
+});
+function autoToggle(){clearInterval(timer);if($('auto').checked)timer=setInterval(loadStats,5000)}
+const loadTop=guard(async()=>{$('top').textContent='...';$('top').textContent=(await api('/api/top')).output});
+
+const loadApps=guard(async()=>{APPS=(await api('/api/apps?kind='+$('kind').value)).apps;renderApps()});
+function renderApps(){
+  const q=$('aq').value.toLowerCase(),k=$('kind').value;
+  $('apps').innerHTML=APPS.filter(a=>a.pkg.toLowerCase().includes(q)).map(a=>`<tr><td class="pk">${a.pkg}${a.protected?' <span class="tag">محمي</span>':''}</td><td><div class="act">
+    <button class="b g s" onclick="appAct('${a.pkg}','force-stop')">إيقاف</button>
+    <button class="b g s" onclick="appAct('${a.pkg}','launch')">تشغيل</button>
+    ${k==='disabled'?`<button class="b s" onclick="appAct('${a.pkg}','enable')">تفعيل</button>`:''}
+    ${a.protected?'':`<button class="b w s" onclick="appAct('${a.pkg}','disable',true)">تعطيل</button>
+    <button class="b g s" onclick="appAct('${a.pkg}','clear-data',true)">مسح البيانات</button>
+    <button class="b r s" onclick="appAct('${a.pkg}','uninstall',true)">حذف</button>`}
+    <button class="b g s" onclick="appAct('${a.pkg}','restore')">استعادة</button>
+  </div></td></tr>`).join('')||'<tr><td>لا توجد نتائج</td></tr>';
+}
+const labels={'disable':'تعطيل','clear-data':'مسح بيانات','uninstall':'حذف'};
+const appAct=guard(async(pkg,action,confirmIt)=>{
+  if(confirmIt&&!confirm(`${labels[action]} ${pkg}؟`))return;
+  const r=await post('/api/app',{pkg,action});toast(r.ok?'✅ تم':'⚠️ '+r.output,5000);
+  if(['disable','enable','uninstall','restore'].includes(action))loadApps();
+});
+const trim=guard(async()=>{toast('جاري التنظيف...');const r=await post('/api/trim-caches');toast(r.ok?'✅ تم تنظيف الكاش':'⚠️ '+r.output)});
+const installApk=guard(async inp=>{
+  const f=inp.files[0];if(!f)return;toast('جاري التثبيت...',60000);
+  const fd=new FormData();fd.append('file',f);
+  const r=await api('/api/install',{method:'POST',body:fd});inp.value='';toast(r.ok?'✅ تم التثبيت':'⚠️ '+r.output,6000);
+});
+
+const loadLogs=guard(async()=>{
+  $('logout').textContent='...';
+  const p=new URLSearchParams({mode:$('lmode').value,level:$('llevel').value,lines:$('llines').value,q:$('lq').value});
+  $('logout').textContent=(await api('/api/logcat?'+p)).output;
+});
+const clearLogs=guard(async()=>{await post('/api/logcat/clear');toast('تم مسح السجل')});
+
+const loadFiles=guard(async()=>{
+  const d=await api('/api/files?path='+encodeURIComponent($('fpath').value));
+  $('fpath').value=d.path;
+  $('files').innerHTML=d.items.map(i=>`<tr class="file"><td onclick="${i.dir?`openDir('${i.name.replace(/'/g,"\\'")}')`:''}">${i.dir?'📁':'📄'} ${i.name}</td><td>${i.dir?'':`<a class="b g s" style="text-decoration:none" href="/api/files/download?path=${encodeURIComponent(d.path+i.name)}">تحميل</a>`}</td></tr>`).join('')||'<tr><td>مجلد فارغ</td></tr>';
+});
+function openDir(n){$('fpath').value=$('fpath').value.replace(/\/?$/,'/')+n+'/';loadFiles()}
+function upDir(){let p=$('fpath').value.replace(/\/$/,'');p=p.substring(0,p.lastIndexOf('/')+1)||'/';$('fpath').value=p;loadFiles()}
+const uploadFile=guard(async inp=>{
+  const f=inp.files[0];if(!f)return;toast('جاري الرفع...',60000);
+  const fd=new FormData();fd.append('path',$('fpath').value);fd.append('file',f);
+  const r=await api('/api/files/upload',{method:'POST',body:fd});inp.value='';toast(r.ok?'✅ تم الرفع':'⚠️ '+r.output);loadFiles();
+});
+
+const key=guard(async k=>{await post('/api/key/'+k)});
+const shot=guard(async()=>{$('shot').innerHTML=`<img class="shot" src="/api/screenshot?t=${Date.now()}" onerror="toast('⚠️ فشل أخذ اللقطة')">`});
+const loadLaunchers=guard(async()=>{const d=await api('/api/launchers');$('lout').textContent=d.launchers.join('\n')||'—'});
+const launcher=guard(async a=>{
+  if(a==='disable-stock'&&!confirm('تعطيل لانشر Google TV؟ تأكد أن اللانشر البديل مثبّت.'))return;
+  const r=await post('/api/launcher/'+a);toast('✅ '+(r.output||'تم'),6000);loadLaunchers();
+});
+const reboot=guard(async()=>{if(!confirm('إعادة تشغيل الجهاز؟'))return;await post('/api/reboot');toast('جاري إعادة التشغيل...')});
+
+refresh();setInterval(refresh,8000);
+</script>
+</body>
+</html>
