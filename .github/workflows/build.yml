@@ -2,7 +2,11 @@ name: Build APK
 
 on:
   push:
+    branches: [lumentv]
   workflow_dispatch:
+
+permissions:
+  contents: write
 
 jobs:
   build:
@@ -26,3 +30,18 @@ jobs:
         with:
           name: LumenTV-apk
           path: app/build/outputs/apk/debug/*.apk
+      - name: Publish APK (release + apk branch)
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          cp app/build/outputs/apk/debug/app-debug.apk LumenTV.apk
+          gh release delete latest --yes --cleanup-tag || true
+          gh release create latest LumenTV.apk --title "Lumen TV APK" --notes "Latest build" || true
+          git config user.name "github-actions"
+          git config user.email "actions@github.com"
+          git checkout --orphan apk
+          git rm -rf . > /dev/null
+          cp /tmp/dummy 2>/dev/null || true
+          git add -f LumenTV.apk 2>/dev/null || { cp app/build/outputs/apk/debug/app-debug.apk LumenTV.apk; git add -f LumenTV.apk; }
+          git commit -m "LumenTV.apk build ${{ github.run_number }}"
+          git push -f origin apk
