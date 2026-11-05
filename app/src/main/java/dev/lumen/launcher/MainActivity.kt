@@ -50,6 +50,7 @@ class MainActivity : Activity() {
     private lateinit var dimView: View
     private lateinit var clockView: TextView
     private lateinit var dateView: TextView
+    private lateinit var weatherView: TextView
     private lateinit var focusedLabel: TextView
     private lateinit var favoritesRow: LinearLayout
     private lateinit var recentRow: LinearLayout
@@ -108,6 +109,7 @@ class MainActivity : Activity() {
         super.onResume()
         hideSystemBars()
         handler.post(clockTick)
+        refreshWeather()
         kenBurns?.resume()
         if (appsDirty) reloadApps() else renderRecent()
     }
@@ -203,8 +205,15 @@ class MainActivity : Activity() {
             typeface = Typeface.create("sans-serif-light", Typeface.NORMAL)
             setShadowLayer(dp(8).toFloat(), 0f, dp(1).toFloat(), 0x66000000)
         }
+        weatherView = TextView(this).apply {
+            textSize = 20f
+            setTextColor(0xE6FFFFFF.toInt())
+            setPadding(0, dp(4), 0, 0)
+            setShadowLayer(dp(8).toFloat(), 0f, dp(1).toFloat(), 0x66000000)
+        }
         clockCol.addView(clockView)
         clockCol.addView(dateView)
+        clockCol.addView(weatherView)
         top.addView(clockCol)
         top.addView(View(this), LinearLayout.LayoutParams(0, 1, 1f))
         val settingsBtn = glassButton(this, "⚙", 22f).apply {
@@ -303,6 +312,21 @@ class MainActivity : Activity() {
         clockView.text = SimpleDateFormat(pattern, Locale.getDefault()).format(now)
         dateView.text = SimpleDateFormat("EEEE، d MMMM", Locale.getDefault()).format(now)
             .let { if (Locale.getDefault().language == "ar") it else it.replace("،", ",") }
+    }
+
+    private var lastWeather = 0L
+
+    /** Updates the weather line at most every 30 minutes. */
+    private fun refreshWeather() {
+        if (System.currentTimeMillis() - lastWeather < 30 * 60_000L) return
+        lastWeather = System.currentTimeMillis()
+        Thread {
+            val r = Weather.fetch()
+            runOnUiThread {
+                if (r == null) lastWeather = 0L
+                else weatherView.text = "${r.icon}  ${r.temp}°  ${r.city}"
+            }
+        }.start()
     }
 
     // ---------------------------------------------------------------- apps

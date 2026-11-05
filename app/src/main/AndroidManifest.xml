@@ -4,6 +4,8 @@
     <uses-feature android:name="android.software.leanback" android:required="false" />
     <uses-feature android:name="android.hardware.touchscreen" android:required="false" />
 
+    <uses-permission android:name="android.permission.INTERNET" />
+
     <!-- Needed to open the uninstall screen for an app on Android 9+ -->
     <uses-permission android:name="android.permission.REQUEST_DELETE_PACKAGES" />
 
