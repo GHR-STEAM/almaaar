@@ -16,11 +16,21 @@ object Weather {
     }
 
     /** Blocking; call off the main thread. Returns null when offline. */
-    fun fetch(): Result? = try {
-        val loc = JSONObject(get("https://ipwho.is/"))
-        val lat = loc.getDouble("latitude")
-        val lon = loc.getDouble("longitude")
-        val city = loc.optString("city")
+    fun fetch(manualCity: String? = null): Result? = try {
+        val lat: Double
+        val lon: Double
+        val city: String
+        if (!manualCity.isNullOrBlank()) {
+            val g = JSONObject(get("https://geocoding-api.open-meteo.com/v1/search?count=1&name=" +
+                java.net.URLEncoder.encode(manualCity.trim(), "UTF-8")))
+            val hit = g.getJSONArray("results").getJSONObject(0)
+            lat = hit.getDouble("latitude"); lon = hit.getDouble("longitude")
+            city = hit.optString("name", manualCity)
+        } else {
+            val loc = JSONObject(get("https://ipwho.is/"))
+            lat = loc.getDouble("latitude"); lon = loc.getDouble("longitude")
+            city = loc.optString("city")
+        }
         val w = JSONObject(get("https://api.open-meteo.com/v1/forecast?latitude=$lat&longitude=$lon&current=temperature_2m,weather_code,is_day"))
             .getJSONObject("current")
         Result(

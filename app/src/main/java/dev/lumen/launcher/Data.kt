@@ -143,6 +143,16 @@ class Prefs(context: Context) {
         get() = sp.getBoolean("clock24", false)
         set(v) { sp.edit().putBoolean("clock24", v).apply() }
 
+    /** City typed by the user for the weather, or null to guess from the IP address. */
+    var city: String?
+        get() = sp.getString("city", null)
+        set(v) { sp.edit().putString("city", v).apply() }
+
+    /** Fresh random wallpaper downloaded from the internet every few hours. */
+    var onlineWallpaper: Boolean
+        get() = sp.getBoolean("onlineWallpaper", false)
+        set(v) { sp.edit().putBoolean("onlineWallpaper", v).apply() }
+
     var showRecent: Boolean
         get() = sp.getBoolean("showRecent", true)
         set(v) { sp.edit().putBoolean("showRecent", v).apply() }

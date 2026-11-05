@@ -34,6 +34,10 @@ import android.widget.LinearLayout
 import android.widget.ScrollView
 import android.widget.TextView
 import android.widget.Toast
+import android.widget.EditText
+import android.text.InputType
+import java.net.HttpURLConnection
+import java.net.URL
 import java.io.File
 import java.io.FileOutputStream
 import java.text.SimpleDateFormat
@@ -64,6 +68,7 @@ class MainActivity : Activity() {
     private var appsDirty = true
 
     private val wallpaperFile by lazy { File(filesDir, "wallpaper.jpg") }
+    private val onlineFile by lazy { File(filesDir, "online.jpg") }
 
     private val packageReceiver = object : BroadcastReceiver() {
         override fun onReceive(context: Context, intent: Intent) {
@@ -321,7 +326,7 @@ class MainActivity : Activity() {
         if (System.currentTimeMillis() - lastWeather < 30 * 60_000L) return
         lastWeather = System.currentTimeMillis()
         Thread {
-            val r = Weather.fetch()
+            val r = Weather.fetch(prefs.city)
             runOnUiThread {
                 if (r == null) lastWeather = 0L
                 else weatherView.text = "${r.icon}  ${r.temp}°  ${r.city}"
@@ -576,6 +581,14 @@ class MainActivity : Activity() {
             applyWallpaper()
         }
         row({ "📁  " + S.t("اختيار صورة من الجهاز", "Pick a picture from device") }) { pickWallpaper() }
+        row({ "🌐  " + S.t("خلفية من الإنترنت: ", "Online wallpaper: ") + onOff(prefs.onlineWallpaper) }) {
+            prefs.onlineWallpaper = !prefs.onlineWallpaper
+            if (prefs.onlineWallpaper) { prefs.customWallpaper = null; onlineFile.delete() }
+            applyWallpaper()
+        }
+        row({ "📍  " + S.t("مدينة الطقس: ", "Weather city: ") + (prefs.city ?: S.t("تلقائي", "Auto")) }) {
+            askCity()
+        }
         row({ "🌗  " + S.t("تعتيم الخلفية: ", "Dim wallpaper: ") + prefs.dim + "%" }) {
             prefs.dim = if (prefs.dim >= 60) 0 else prefs.dim + 15
             applyDim()
@@ -632,7 +645,18 @@ class MainActivity : Activity() {
         kenBurns?.cancel()
         wallpaperView.scaleX = 1f
         wallpaperView.scaleY = 1f
-        if (prefs.customWallpaper != null && wallpaperFile.exists()) {
+        if (prefs.onlineWallpaper) {
+            Thread {
+                val stale = !onlineFile.exists() || System.currentTimeMillis() - onlineFile.lastModified() > 6 * 3600_000L
+                if (stale) downloadOnlineWallpaper()
+                val bmp = if (onlineFile.exists()) BitmapFactory.decodeFile(onlineFile.absolutePath) else null
+                runOnUiThread {
+                    if (bmp != null) wallpaperView.setImageDrawable(BitmapDrawable(resources, bmp))
+                    else wallpaperView.setImageDrawable(Wallpapers.drawable(prefs.wallpaperIndex))
+                    startKenBurns()
+                }
+            }.start()
+        } else if (prefs.customWallpaper != null && wallpaperFile.exists()) {
             Thread {
                 val bmp = BitmapFactory.decodeFile(wallpaperFile.absolutePath)
                 runOnUiThread {
@@ -646,6 +670,37 @@ class MainActivity : Activity() {
             startKenBurns()
         }
         applyDim()
+    }
+
+    /** Downloads a random landscape photo (blocking; call off the main thread). Keeps the old one on failure. */
+    private fun downloadOnlineWallpaper() {
+        try {
+            val c = URL("https://picsum.photos/1920/1080").openConnection() as HttpURLConnection
+            c.connectTimeout = 10_000; c.readTimeout = 20_000; c.instanceFollowRedirects = true
+            val tmp = File(filesDir, "online.tmp")
+            c.inputStream.use { i -> FileOutputStream(tmp).use { o -> i.copyTo(o) } }
+            c.disconnect()
+            if (BitmapFactory.decodeFile(tmp.absolutePath) != null) tmp.renameTo(onlineFile) else tmp.delete()
+        } catch (e: Exception) { }
+    }
+
+    private fun askCity() {
+        val input = EditText(this).apply {
+            inputType = InputType.TYPE_CLASS_TEXT
+            hint = S.t("مثال: الرياض (اتركه فارغاً للتلقائي)", "e.g. Riyadh (empty = auto)")
+            setText(prefs.city ?: "")
+        }
+        AlertDialog.Builder(this, android.R.style.Theme_DeviceDefault_Dialog_Alert)
+            .setTitle(S.t("مدينة الطقس", "Weather city"))
+            .setView(input)
+            .setPositiveButton(S.t("حفظ", "Save")) { _, _ ->
+                prefs.city = input.text.toString().trim().ifEmpty { null }
+                lastWeather = 0L
+                refreshWeather()
+                if (settingsPanel != null) { closeSettings(); openSettings() }
+            }
+            .setNegativeButton(S.t("إلغاء", "Cancel"), null)
+            .show()
     }
 
     /** Very slow zoom on the wallpaper so the home screen feels alive. */
